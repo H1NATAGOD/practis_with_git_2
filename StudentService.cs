@@ -1,4 +1,6 @@
-﻿namespace ConsoleApp2;
+﻿using Npgsql;
+
+namespace ConsoleApp2;
 
 public class StudentService
 {
@@ -56,5 +58,42 @@ public class StudentService
             cmd.Parameters.AddWithValue("group", groupName);
             cmd.ExecuteNonQuery();
         }
- 
-}
+        public void UpdateStudent(int id, string fullName, int course, string groupName)
+        {
+            using var conn = new NpgsqlConnection(ConnectionString);
+            conn.Open();
+            string query = @"UPDATE students 
+                             SET full_name = @name, course = @course, group_name = @group
+                             WHERE id = @id";
+            using var cmd = new NpgsqlCommand(query, conn);
+            cmd.Parameters.AddWithValue("id", id);
+            cmd.Parameters.AddWithValue("name", fullName);
+            cmd.Parameters.AddWithValue("course", course);
+            cmd.Parameters.AddWithValue("group", groupName);
+            cmd.ExecuteNonQuery();
+        }
+
+        public void AddGrade(int studentId, int year, double grade)
+        {
+            using var conn = new NpgsqlConnection(ConnectionString);
+            conn.Open();
+            string checkQuery = "SELECT course FROM students WHERE id = @id";
+            using var checkCmd = new NpgsqlCommand(checkQuery, conn);
+            checkCmd.Parameters.AddWithValue("id", studentId);
+            object result = checkCmd.ExecuteScalar();
+
+            if (result == null)
+                throw new InvalidOperationException("Студент не найден.");
+
+            int maxYear = Convert.ToInt32(result);
+            if (year > maxYear)
+                throw new InvalidOperationException("Ошибка: Год оценки не может превышать текущий курс студента.");
+
+            string query = "INSERT INTO grades (student_id, year, grade) VALUES (@studentId, @year, @grade)";
+            using var cmd = new NpgsqlCommand(query, conn);
+            cmd.Parameters.AddWithValue("studentId", studentId);
+            cmd.Parameters.AddWithValue("year", year);
+            cmd.Parameters.AddWithValue("grade", grade);
+            cmd.ExecuteNonQuery();
+        }
+} 
